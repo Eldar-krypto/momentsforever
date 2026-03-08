@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Наш фотоальбом</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg1: #f7ecf0;
+      --bg2: #f5eed8;
+      --bg3: #e8f1f9;
+      --text: #2e2a28;
+      --accent: #8a3d1a;
+      --soft: rgba(255,255,255,0.7);
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+      --page-shadow: 0 12px 25px rgba(0,0,0,.16);
+    }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, var(--bg1), var(--bg2), var(--bg3));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      position: relative;
+    }
+
+    canvas#snow {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .album-wrap {
+      width: 100%;
+      max-width: 1240px;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .title {
+      font-size: clamp(30px, 4.8vw, 62px);
+      color: var(--accent);
+      margin-bottom: 10px;
+      font-weight: 800;
+      text-shadow: 0 2px 0 rgba(255,255,255,.5);
+    }
+
+    .subtitle {
+      color: #65707f;
+      font-size: clamp(14px, 1.6vw, 20px);
+      margin-bottom: 20px;
+      line-height: 1.55;
+    }
+
+    .book-area {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      position: relative;
+    }
+
+    .nav-btn {
+      border: none;
+      background: rgba(255,255,255,.92);
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      font-size: 28px;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.14);
+      transition: transform .2s ease, opacity .2s ease, background .2s ease;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .nav-btn:hover { transform: scale(1.06); }
+    .nav-btn:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .stage {
+      width: min(92vw, 960px);
+      height: min(62vw, 640px);
+      min-height: 280px;
+      max-height: 76vh;
+      position: relative;
+      perspective: 2600px;
+      filter: drop-shadow(0 22px 30px rgba(0,0,0,.18));
+    }
+
+    .book-base {
+      position: absolute;
+      inset: 0;
+      border-radius: 22px;
+      background: linear-gradient(90deg, rgba(255,255,255,.4), rgba(255,255,255,.25));
+    }
+
+    .spread {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border-radius: 22px;
+      overflow: visible;
+      z-index: 1;
+    }
+
+    .paper {
+      background: linear-gradient(180deg, #fffdf9, #fffaf2);
+      box-shadow: var(--page-shadow);
+      padding: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .paper.left {
+      border-top-left-radius: 22px;
+      border-bottom-left-radius: 22px;
+      border-right: 1px solid rgba(0,0,0,.06);
+    }
+
+    .paper.right {
+      border-top-right-radius: 22px;
+      border-bottom-right-radius: 22px;
+      border-left: 1px solid rgba(0,0,0,.05);
+    }
+
+    .paper::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(255,255,255,.18), transparent 22%, transparent 78%, rgba(0,0,0,.03));
+    }
+
+    .paper img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      border-radius: 14px;
+      background: #f1f3f7;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .spine {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      transform: translateX(-50%);
+      width: 22px;
+      height: 100%;
+      border-radius: 20px;
+      background: linear-gradient(to right, rgba(0,0,0,.22), rgba(255,255,255,.25), rgba(0,0,0,.16));
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    .flip-page {
+      position: absolute;
+      top: 0;
+      width: 50%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform .92s cubic-bezier(.25,.8,.25,1);
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .flip-page.right {
+      right: 0;
+      transform-origin: left center;
+    }
+
+    .flip-page.left {
+      left: 0;
+      transform-origin: right center;
+    }
+
+    .flip-page.turn-right {
+      transform: rotateY(-180deg);
+    }
+
+    .flip-page.turn-left {
+      transform: rotateY(180deg);
+    }
+
+    .flip-face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      background: linear-gradient(180deg, #fffdf9, #fffaf2);
+      box-shadow: var(--page-shadow);
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .flip-page.right .flip-face.front {
+      border-top-right-radius: 22px;
+      border-bottom-right-radius: 22px;
+    }
+
+    .flip-page.right .flip-face.back {
+      border-top-left-radius: 22px;
+      border-bottom-left-radius: 22px;
+    }
+
+    .flip-page.left .flip-face.front {
+      border-top-left-radius: 22px;
+      border-bottom-left-radius: 22px;
+    }
+
+    .flip-page.left .flip-face.back {
+      border-top-right-radius: 22px;
+      border-bottom-right-radius: 22px;
+    }
+
+    .flip-face::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(255,255,255,.16), transparent 24%, transparent 76%, rgba(0,0,0,.03));
+    }
+
+    .flip-face img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      border-radius: 14px;
+      background: #f1f3f7;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .flip-face.back {
+      transform: rotateY(180deg);
+    }
+
+    .cover-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      pointer-events: none;
+      transition: opacity .55s ease;
+    }
+
+    .cover-overlay.hidden {
+      opacity: 0;
+    }
+
+    .cover-card {
+      width: min(88%, 740px);
+      min-height: 62%;
+      background: linear-gradient(145deg, rgba(255,255,255,.9), rgba(255,249,240,.88));
+      border: 1px solid rgba(255,255,255,.65);
+      backdrop-filter: blur(10px);
+      border-radius: 26px;
+      box-shadow: 0 22px 48px rgba(0,0,0,.16);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px 24px;
+      text-align: center;
+    }
+
+    .cover-emoji {
+      font-size: clamp(34px, 6vw, 64px);
+      margin-bottom: 14px;
+    }
+
+    .cover-title {
+      font-size: clamp(28px, 4vw, 54px);
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .cover-text {
+      font-size: clamp(14px, 1.7vw, 20px);
+      line-height: 1.65;
+      color: #5f6875;
+      max-width: 640px;
+    }
+
+    .cover-line {
+      width: 120px;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #d7a977, #f1d5b0, #d7a977);
+      margin: 18px 0;
+    }
+
+    .info {
+      margin-top: 16px;
+      color: #3c4857;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .hint {
+      margin-top: 8px;
+      color: #6c7480;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .music-panel {
+      margin-top: 18px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .music-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 18px;
+      background: rgba(255,255,255,.92);
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(0,0,0,.12);
+      font-size: 15px;
+      font-weight: 700;
+      transition: transform .2s ease;
+    }
+
+    .music-btn:hover { transform: translateY(-2px); }
+
+    .music-status {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #6b7280;
+      min-height: 20px;
+    }
+
+    .start-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,.72);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      padding: 20px;
+    }
+
+    .start-card {
+      width: min(100%, 430px);
+      background: rgba(255,255,255,.96);
+      border-radius: 26px;
+      box-shadow: 0 26px 56px rgba(0,0,0,.18);
+      padding: 28px 22px;
+      text-align: center;
+    }
+
+    .start-card h2 {
+      font-size: 30px;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .start-card p {
+      color: #687380;
+      font-size: 15px;
+      line-height: 1.65;
+      margin-bottom: 18px;
+    }
+
+    .start-btn {
+      border: none;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      padding: 14px 22px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 14px 30px rgba(138,61,26,.28);
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 900px) {
+      .stage {
+        width: min(94vw, 860px);
+        height: min(66vw, 560px);
+      }
+      .nav-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 12px;
+      }
+
+      .book-area {
+        gap: 8px;
+      }
+
+      .stage {
+        width: min(100%, 96vw);
+        height: 66vw;
+        min-height: 245px;
+        max-height: 62vh;
+      }
+
+      .paper, .flip-face {
+        padding: 8px;
+      }
+
+      .paper img, .flip-face img {
+        border-radius: 10px;
+      }
+
+      .spine {
+        width: 16px;
+      }
+
+      .nav-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+      }
+
+      .title {
+        font-size: 28px;
+      }
+
+      .subtitle {
+        font-size: 14px;
+      }
+
+      .info {
+        font-size: 14px;
+      }
+
+      .hint, .music-status {
+        font-size: 13px;
+      }
+
+      .cover-card {
+        width: 90%;
+        min-height: 58%;
+        padding: 20px 16px;
+      }
+
+      .start-card h2 {
+        font-size: 25px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="snow"></canvas>
+
+  <div class="start-overlay" id="startOverlay">
+    <div class="start-card">
+      <h2>Наш фотоальбом</h2>
+      <p>Нажми кнопку ниже, чтобы открыть 3D-книгу и включить музыку. На iPhone тоже будет работать.</p>
+      <button class="start-btn" id="startBtn">Открыть альбом</button>
+    </div>
+  </div>
+
+  <div class="album-wrap">
+    <div class="title">Наш фотоальбом</div>
+    <div class="subtitle">Тёплые воспоминания о лучших моментах с коллегами</div>
+
+    <div class="book-area">
+      <button class="nav-btn" id="prevBtn" aria-label="Назад">❮</button>
+
+      <div class="stage" id="stage">
+        <div class="book-base"></div>
+
+        <div class="spread" id="spread">
+          <div class="paper left"><img id="leftStatic" alt="Фото слева"></div>
+          <div class="paper right"><img id="rightStatic" alt="Фото справа"></div>
+        </div>
+
+        <div class="flip-page right" id="flipRight">
+          <div class="flip-face front"><img id="flipRightFront" alt="Текущая правая страница"></div>
+          <div class="flip-face back"><img id="flipRightBack" alt="Следующая левая страница"></div>
+        </div>
+
+        <div class="flip-page left" id="flipLeft">
+          <div class="flip-face front"><img id="flipLeftFront" alt="Текущая левая страница"></div>
+          <div class="flip-face back"><img id="flipLeftBack" alt="Предыдущая правая страница"></div>
+        </div>
+
+        <div class="spine"></div>
+
+        <div class="cover-overlay" id="coverOverlay">
+          <div class="cover-card">
+            <div class="cover-emoji">📖✨</div>
+            <div class="cover-title">Тёплые воспоминания</div>
+            <div class="cover-line"></div>
+            <div class="cover-text">Этот альбом — маленькое спасибо нашим коллегам за поддержку, смех, дружбу и самые добрые моменты, которые мы прожили вместе.</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="nav-btn" id="nextBtn" aria-label="Вперёд">❯</button>
+    </div>
+
+    <div class="info" id="pageInfo">Обложка · Фото 1–2 из 35</div>
+    <div class="hint">Листай кнопками, стрелками клавиатуры или свайпом на телефоне</div>
+
+    <div class="music-panel">
+      <button class="music-btn" id="playBtn">▶ Включить музыку</button>
+      <button class="music-btn" id="pauseBtn">⏸ Пауза</button>
+    </div>
+
+    <div class="music-status" id="musicStatus">Музыка ещё не запущена</div>
+  </div>
+
+  <audio id="bgMusic" loop preload="auto" playsinline webkit-playsinline>
+    <source src="dosym.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    const totalPhotos = 35;
+    const photoFolder = 'images';
+    const photoExtension = 'jpeg';
+    const photos = Array.from({ length: totalPhotos }, (_, i) => `${photoFolder}/${i + 1}.${photoExtension}`);
+
+    const leftStatic = document.getElementById('leftStatic');
+    const rightStatic = document.getElementById('rightStatic');
+    const flipRight = document.getElementById('flipRight');
+    const flipLeft = document.getElementById('flipLeft');
+    const flipRightFront = document.getElementById('flipRightFront');
+    const flipRightBack = document.getElementById('flipRightBack');
+    const flipLeftFront = document.getElementById('flipLeftFront');
+    const flipLeftBack = document.getElementById('flipLeftBack');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const pageInfo = document.getElementById('pageInfo');
+    const coverOverlay = document.getElementById('coverOverlay');
+
+    const bgMusic = document.getElementById('bgMusic');
+    const musicStatus = document.getElementById('musicStatus');
+    const playBtn = document.getElementById('playBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const startOverlay = document.getElementById('startOverlay');
+    const startBtn = document.getElementById('startBtn');
+
+    let currentLeftIndex = 1;
+    let isAnimating = false;
+    let coverVisible = true;
+
+    function setImg(imgEl, src) {
+      imgEl.src = src || '';
+      imgEl.style.visibility = src ? 'visible' : 'hidden';
+      imgEl.onerror = function () {
+        this.alt = 'Фото не найдено';
+      };
+    }
+
+    function getPhoto(index) {
+      if (index < 1 || index > totalPhotos) return '';
+      return photos[index - 1];
+    }
+
+    function renderStaticSpread() {
+      setImg(leftStatic, getPhoto(currentLeftIndex));
+      setImg(rightStatic, getPhoto(currentLeftIndex + 1));
+
+      const rightNumber = Math.min(currentLeftIndex + 1, totalPhotos);
+      pageInfo.textContent = `${coverVisible ? 'Обложка · ' : ''}Фото ${currentLeftIndex}–${rightNumber} из ${totalPhotos}`;
+
+      prevBtn.disabled = currentLeftIndex === 1;
+      nextBtn.disabled = currentLeftIndex + 2 > totalPhotos;
+    }
+
+    function hideCoverIfNeeded() {
+      if (coverVisible) {
+        coverVisible = false;
+        coverOverlay.classList.add('hidden');
+      }
+    }
+
+    function nextPage() {
+      if (isAnimating || currentLeftIndex + 2 > totalPhotos) return;
+      isAnimating = true;
+      hideCoverIfNeeded();
+
+      flipRight.style.display = 'block';
+      setImg(flipRightFront, getPhoto(currentLeftIndex + 1));
+      setImg(flipRightBack, getPhoto(currentLeftIndex + 2));
+
+      requestAnimationFrame(() => {
+        flipRight.classList.add('turn-right');
+      });
+
+      setTimeout(() => {
+        currentLeftIndex += 2;
+        renderStaticSpread();
+        flipRight.classList.remove('turn-right');
+        isAnimating = false;
+      }, 920);
+    }
+
+    function prevPage() {
+      if (isAnimating || currentLeftIndex - 2 < 1) return;
+      isAnimating = true;
+      hideCoverIfNeeded();
+
+      flipLeft.style.display = 'block';
+      setImg(flipLeftFront, getPhoto(currentLeftIndex));
+      setImg(flipLeftBack, getPhoto(currentLeftIndex - 1));
+
+      requestAnimationFrame(() => {
+        flipLeft.classList.add('turn-left');
+      });
+
+      setTimeout(() => {
+        currentLeftIndex -= 2;
+        renderStaticSpread();
+        flipLeft.classList.remove('turn-left');
+        isAnimating = false;
+      }, 920);
+    }
+
+    async function playMusic() {
+      try {
+        bgMusic.volume = 0.9;
+        await bgMusic.play();
+        musicStatus.textContent = 'Музыка играет: dosym.mp3';
+      } catch (e) {
+        musicStatus.textContent = 'Не удалось включить музыку. Нажми ещё раз.';
+      }
+    }
+
+    function pauseMusic() {
+      bgMusic.pause();
+      musicStatus.textContent = 'Музыка на паузе';
+    }
+
+    async function startAlbum() {
+      startOverlay.classList.add('hidden');
+      await playMusic();
+    }
+
+    prevBtn.addEventListener('click', prevPage);
+    nextBtn.addEventListener('click', nextPage);
+    playBtn.addEventListener('click', playMusic);
+    pauseBtn.addEventListener('click', pauseMusic);
+    startBtn.addEventListener('click', startAlbum);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') nextPage();
+      if (e.key === 'ArrowLeft') prevPage();
+    });
+
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      const diff = touchEndX - touchStartX;
+      if (diff < -40) nextPage();
+      if (diff > 40) prevPage();
+    }, { passive: true });
+
+    renderStaticSpread();
+
+    const snowCanvas = document.getElementById('snow');
+    const ctx = snowCanvas.getContext('2d');
+    let flakes = [];
+    let snowEnabled = true;
+
+    function resizeSnow() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      snowCanvas.width = Math.floor(window.innerWidth * dpr);
+      snowCanvas.height = Math.floor(window.innerHeight * dpr);
+      snowCanvas.style.width = window.innerWidth + 'px';
+      snowCanvas.style.height = window.innerHeight + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      createFlakes();
+    }
+
+    function createFlakes() {
+      const count = window.innerWidth < 700 ? 40 : 70;
+      flakes = Array.from({ length: count }, () => ({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        r: Math.random() * 2.2 + 0.8,
+        s: Math.random() * 1.1 + 0.45,
+        w: Math.random() * 0.8 + 0.2
+      }));
+    }
+
+    function drawSnow() {
+      if (!snowEnabled) return;
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      flakes.forEach(f => {
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        ctx.fill();
+        f.y += f.s;
+        f.x += Math.sin(f.y * 0.01) * f.w;
+        if (f.y > window.innerHeight + 6) {
+          f.y = -6;
+          f.x = Math.random() * window.innerWidth;
+        }
+      });
+      requestAnimationFrame(drawSnow);
+    }
+
+    resizeSnow();
+    drawSnow();
+    window.addEventListener('resize', resizeSnow);
+  </script>
+</body>
+</html>
